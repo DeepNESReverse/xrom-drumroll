@@ -1,0 +1,76 @@
+/*
+ * @xromdev/drumroll — the kit's behaviour.
+ *
+ * A lane is the piece of the kit itself, with no panel behind it (a bordered
+ * pad would read as a button). The hit lights the PIECE: instant on contact,
+ * easing out over `--flash-release`, applied as light around it — a drawing of
+ * wood and bronze cannot take an arbitrary colour and stay an instrument. The
+ * movement is not here: each piece has its own, from `motion.ts`.
+ */
+
+.xdr-roll {
+  position: relative;
+  overflow: hidden;
+  background: #0b0b12;
+}
+
+.xdr-kit {
+  position: relative;
+}
+
+.xdr-lane {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  color: var(--lane, #008300);
+}
+
+.xdr-piece {
+  display: inline-block;
+  line-height: 0;
+  will-change: transform;
+  transform-origin: center;
+}
+
+.xdr-label {
+  margin-top: 2px;
+  padding: 0 4px;
+  text-align: center;
+  font: 9px/1.2 ui-sans-serif, system-ui, sans-serif;
+  opacity: 0.7;
+}
+
+.xdr-piece,
+.xdr-label {
+  transition:
+    color var(--flash-release, 320ms) cubic-bezier(0.22, 0.61, 0.36, 1),
+    filter var(--flash-release, 320ms) cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Struck: the label goes to white and both throw the lane's colour as light. */
+.xdr-lane[data-lit='1'] .xdr-piece,
+.xdr-lane[data-lit='1'] .xdr-label {
+  color: #ffffff;
+  filter: drop-shadow(0 0 8px var(--lane, #008300)) drop-shadow(0 0 3px var(--lane, #008300)) brightness(1.18);
+  transition-duration: 25ms;
+}
+
+/* Silenced one drum at a time: dimmed and drained, never removed. */
+.xdr-lane[data-muted='1'] .xdr-piece {
+  opacity: 0.34;
+  filter: grayscale(0.75);
+}
+
+.xdr-lane[data-muted='1'] .xdr-label {
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xdr-piece,
+  .xdr-label {
+    transition-duration: 0ms;
+  }
+}

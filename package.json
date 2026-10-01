@@ -1,0 +1,81 @@
+{
+  "name": "@xromdev/drumroll",
+  "version": "0.1.0",
+  "description": "Drums falling onto a kit: the NES noise channel's sixteen rates as a drum kit that moves when struck \u2014 canvas blocks, DOM pieces, no framework in the frame loop. React component included.",
+  "license": "MIT",
+  "author": "Oleksandr Maksymov",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./react": {
+      "types": "./dist/react.d.ts",
+      "import": "./dist/react.js"
+    },
+    "./drumroll.css": "./dist/drumroll.css",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": [
+    "*.css"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && cp src/drumroll.css dist/",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepare": "npm run build",
+    "prepublishOnly": "npm run typecheck && npm test"
+  },
+  "keywords": [
+    "drums",
+    "drum-roll",
+    "drum-kit",
+    "nes",
+    "noise",
+    "chiptune",
+    "visualizer",
+    "canvas",
+    "react",
+    "falling-notes"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DeepNESReverse/xrom-drumroll.git"
+  },
+  "homepage": "https://github.com/DeepNESReverse/xrom-drumroll#readme",
+  "bugs": {
+    "url": "https://github.com/DeepNESReverse/xrom-drumroll/issues"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "peerDependencies": {
+    "react": ">=18"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.0.0",
+    "jsdom": "^25.0.1",
+    "react": "^19.0.0",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@xromdev/roll": "file:../roll"
+  }
+}
