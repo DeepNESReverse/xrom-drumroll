@@ -61,3 +61,23 @@ describe('DrumRollView', () => {
     expect(lanes[0].querySelector('svg')).toBeNull();
   });
 });
+
+describe('the kit’s desk', () => {
+  it('draws M and S under every piece only when there are handlers, and reports the press', () => {
+    const presses: string[] = [];
+    const { lanes: bare } = kit(beat);
+    expect(bare[0].querySelector('.xdr-mix')).toBeNull();
+    const { lanes } = kit(beat, {
+      kitMix: { muted: [7], soloed: [] },
+      onPieceMutedChange: (p: number, m: boolean) => presses.push(`M${p}:${m}`),
+      onPieceSoloedChange: (p: number, s: boolean) => presses.push(`S${p}:${s}`),
+    });
+    const snare = lanes.find((l) => l.querySelector('.xdr-label')?.textContent === 'snare')!;
+    const [m, s] = snare.querySelectorAll<HTMLButtonElement>('.xdr-mix');
+    expect(m.dataset.on).toBe('1');
+    expect(s.dataset.on).toBe('0');
+    m.click();
+    s.click();
+    expect(presses).toEqual(['M7:false', 'S7:true']);
+  });
+});

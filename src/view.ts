@@ -75,6 +75,14 @@ export interface DrumRollOptions extends RollOptions {
    * blocks keep falling faded, and the pieces are drawn dimmed.
    */
   kitMix?: KitMix;
+  /**
+   * M and S under every piece — mute and solo one drum at a time. Drawn only
+   * when handlers are given: a control that cannot do anything is a lie. The
+   * view does not change `kitMix` itself; the caller decides, and passes the
+   * new mix back (see `setPieceMuted` / `setPieceSoloed`).
+   */
+  onPieceMutedChange?: (period: number, muted: boolean) => void;
+  onPieceSoloedChange?: (period: number, soloed: boolean) => void;
 }
 
 /** How much of a lane a falling block takes. A hit is an instant, not a slab. */
@@ -118,6 +126,8 @@ class Kit implements RollSurface<DrumRollOptions> {
   private built = '';
   private readonly running = new Map<number, Animation[]>();
   private animate = true;
+  /** The latest handlers, so a new function from the caller does not rebuild the kit. */
+  private handlers: Pick<DrumRollOptions, 'onPieceMutedChange' | 'onPieceSoloedChange'> = {};
 
   constructor(doc: Document) {
     this.element = doc.createElement('div');
@@ -131,14 +141,16 @@ class Kit implements RollSurface<DrumRollOptions> {
     const laneWidth = lanes.length > 0 ? Math.min(width / lanes.length, o.maxLaneWidth ?? 104) : 0;
     const left = Math.max(0, (width - laneWidth * lanes.length) / 2);
     this.animate = o.animate !== false;
+    this.handlers = { onPieceMutedChange: o.onPieceMutedChange, onPieceSoloedChange: o.onPieceSoloedChange };
+    const buttons = { mute: !!o.onPieceMutedChange, solo: !!o.onPieceSoloedChange };
     this.element.style.height = `${padHeight}px`;
 
     const showPiece = o.showIcons !== false && padHeight >= 62;
     const showNames = o.showNames !== false;
     // Rebuilt only when what it draws changes — never per frame.
-    const key = JSON.stringify([lanes.map((l) => [l.period, l.label, l.color, l.icon !== null]), laneWidth, left, padHeight, showPiece, showNames, o.iconSize, mix]);
+    const key = JSON.stringify([lanes.map((l) => [l.period, l.label, l.color, l.icon !== null]), laneWidth, left, padHeight, showPiece, showNames, o.iconSize, mix, buttons]);
     if (key !== this.built) {
-      this.build(lanes, laneWidth, left, padHeight, showPiece, showNames, mix);
+      this.build(lanes, laneWidth, left, padHeight, showPiece, showNames, mix, buttons);
       this.built = key;
     }
 
@@ -161,7 +173,16 @@ class Kit implements RollSurface<DrumRollOptions> {
     };
   }
 
-  private build(lanes: Resolved[], laneWidth: number, left: number, height: number, showPiece: boolean, showNames: boolean, mix: KitMix) {
+  private build(
+    lanes: Resolved[],
+    laneWidth: number,
+    left: number,
+    height: number,
+    showPiece: boolean,
+    showNames: boolean,
+    mix: KitMix,
+    buttons: { mute: boolean; solo: boolean }
+  ) {
     const doc = this.element.ownerDocument;
     const usable = height * (1 - FLOOR_SHARE);
     const nodes = new Map<number, HTMLElement>();
@@ -194,6 +215,28 @@ class Kit implements RollSurface<DrumRollOptions> {
         label.className = 'xdr-label';
         label.textContent = lane.label;
         node.append(label);
+      }
+      // The kit's own desk: M and S under the piece, not on it — the piece as
+      // the button could only ever carry one verb.
+      if ((buttons.mute || buttons.solo) && laneWidth >= 34) {
+        const desk = doc.createElement('span');
+        desk.className = 'xdr-desk';
+        const muted = mix.muted.includes(lane.period);
+        const soloed = mix.soloed.includes(lane.period);
+        const button = (letter: 'M' | 'S', on: boolean, act: () => void) => {
+          const b = doc.createElement('button');
+          b.type = 'button';
+          b.className = 'xdr-mix';
+          b.textContent = letter;
+          b.dataset.on = on ? '1' : '0';
+          b.setAttribute('aria-pressed', on ? 'true' : 'false');
+          b.title = `${lane.label} — ${letter === 'M' ? (on ? 'unmute' : 'mute') : on ? 'unsolo' : 'solo'}`;
+          b.addEventListener('click', act);
+          desk.append(b);
+        };
+        if (buttons.mute) button('M', muted, () => this.handlers.onPieceMutedChange?.(lane.period, !muted));
+        if (buttons.solo) button('S', soloed, () => this.handlers.onPieceSoloedChange?.(lane.period, !soloed));
+        node.append(desk);
       }
       nodes.set(lane.period, node);
       return node;

@@ -24,13 +24,31 @@ export interface DrumRollProps extends Omit<DrumRollOptions, 'onSoundingChange'>
   style?: CSSProperties;
 }
 
-export function DrumRoll({ hits, time, clock, height = 300, onSoundingChange, onView, className, style, ...options }: DrumRollProps) {
+export function DrumRoll({
+  hits,
+  time,
+  clock,
+  height = 300,
+  onSoundingChange,
+  onView,
+  onPieceMutedChange,
+  onPieceSoloedChange,
+  className,
+  style,
+  ...options
+}: DrumRollProps) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<DrumRollView | null>(null);
   const sounding = useRef(onSoundingChange);
   sounding.current = onSoundingChange;
   const onViewRef = useRef(onView);
   onViewRef.current = onView;
+  const mute = useRef(onPieceMutedChange);
+  mute.current = onPieceMutedChange;
+  const solo = useRef(onPieceSoloedChange);
+  solo.current = onPieceSoloedChange;
+  const hasMute = !!onPieceMutedChange;
+  const hasSolo = !!onPieceSoloedChange;
   const { lookAhead, tracks, releaseMs, sparks, lanes, padHeight, maxLaneWidth, showNames, showIcons, animate, iconSize, kitMix } = options;
 
   useEffect(() => {
@@ -45,8 +63,24 @@ export function DrumRoll({ hits, time, clock, height = 300, onSoundingChange, on
   }, []);
 
   useEffect(() => {
-    view.current?.setOptions({ lookAhead, tracks, releaseMs, sparks, lanes, padHeight, maxLaneWidth, showNames, showIcons, animate, iconSize, kitMix });
-  }, [lookAhead, tracks, releaseMs, sparks, lanes, padHeight, maxLaneWidth, showNames, showIcons, animate, iconSize, kitMix]);
+    view.current?.setOptions({
+      lookAhead,
+      tracks,
+      releaseMs,
+      sparks,
+      lanes,
+      padHeight,
+      maxLaneWidth,
+      showNames,
+      showIcons,
+      animate,
+      iconSize,
+      kitMix,
+      // Stable functions: the kit is rebuilt only when buttons appear or go.
+      onPieceMutedChange: hasMute ? (p, m) => mute.current?.(p, m) : undefined,
+      onPieceSoloedChange: hasSolo ? (p, s) => solo.current?.(p, s) : undefined,
+    });
+  }, [lookAhead, tracks, releaseMs, sparks, lanes, padHeight, maxLaneWidth, showNames, showIcons, animate, iconSize, kitMix, hasMute, hasSolo]);
 
   useEffect(() => {
     view.current?.setHits(hits);

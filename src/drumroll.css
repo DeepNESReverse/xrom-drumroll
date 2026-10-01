@@ -68,6 +68,47 @@
   text-decoration: line-through;
 }
 
+/*
+ * M and S under a piece: small, quiet, and only as loud as their state — an
+ * outline the eye skips when off, the lane's own colour when on.
+ */
+.xdr-desk {
+  display: flex;
+  gap: 2px;
+  margin-top: 3px;
+}
+
+.xdr-mix {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: 1px solid color-mix(in oklab, var(--lane, #008300) 45%, transparent);
+  border-radius: 3px;
+  background: transparent;
+  color: color-mix(in oklab, var(--lane, #008300) 70%, #6b6b78);
+  font: 700 9px/1 ui-sans-serif, system-ui, sans-serif;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background-color 120ms ease,
+    border-color 120ms ease;
+}
+
+.xdr-mix:hover {
+  border-color: var(--lane, #008300);
+}
+
+.xdr-mix[data-on='1'] {
+  border-color: var(--lane, #008300);
+  background: color-mix(in oklab, var(--lane, #008300) 26%, transparent);
+  color: #ffffff;
+}
+
+.xdr-mix:focus-visible {
+  outline: 1px solid var(--lane, #008300);
+  outline-offset: 1px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .xdr-piece,
   .xdr-label {
