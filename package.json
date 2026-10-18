@@ -1,6 +1,6 @@
 {
   "name": "@xromdev/drumroll",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Drums falling onto a kit: the NES noise channel's sixteen rates as a drum kit that moves when struck — canvas blocks, DOM pieces, no framework in the frame loop. React component included.",
   "license": "MIT",
   "author": "Oleksandr Maksymov",
