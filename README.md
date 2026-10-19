@@ -10,8 +10,12 @@ two stack and follow one clock.
   (`$400E`, 0 fastest … 15 slowest). Each rate is a lane, read as a piece:
   closed, pedal and open hats, clap, snares, side stick, four toms, the kick.
 - The pieces stand in a kit, in two rows, and each moves its own way when
-  struck — the kick swells and rebounds, an open hat swings, a clap claps.
-  Motion follows the hit's velocity, and `prefers-reduced-motion` stops it.
+  struck — the kick swells and rebounds, an open hat's cymbals wobble on a
+  stand that stays put, a clap claps. Motion follows the hit's velocity, a
+  roll faster than a stroke squeezes each stroke into its gap (`motionDuration`),
+  and `prefers-reduced-motion` stops it.
+- Each hit falls as the piece struck — a cymbal edge-on, an open hat as two,
+  a drumhead from above, the snare rimmed — not as a block.
 - M and S under every piece, if you want them: mute or solo one drum at a
   time. A silenced piece is dimmed and its hits keep falling, faded.
 - Any drums, not only the NES: pass `lanes` with your own names, colours and
@@ -86,7 +90,7 @@ Everything `@xromdev/roll` takes (`lookAhead`, `tracks`, `releaseMs`, `sparks`,
 
 Also exported: `NOISE_DRUM_NAMES`, `NOISE_DRUM_KINDS`, `drumIcon(kind, size)`
 (the drawings as SVG strings), `colorOfPeriod`, `familyOf`, `placementOf`, and
-the motions (`keyframesFor`, `partKeyframesFor`, `durationOf`) to strike a
+the motions (`keyframesFor`, `partKeyframesFor`, `durationOf`, `motionDuration`) to strike a
 piece of your own with the Web Animations API.
 
 ## Development

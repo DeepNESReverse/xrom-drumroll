@@ -31,4 +31,4 @@ export {
   type KitMix,
   type KitPlacement,
 } from './lanes.js';
-export { DRUM_MOTIONS, durationOf, keyframesFor, partKeyframesFor, type DrumMotion, type MotionStep } from './motion.js';
+export { DRUM_MOTIONS, MIN_MOTION_MS, durationOf, keyframesFor, motionDuration, partKeyframesFor, type DrumMotion, type MotionStep } from './motion.js';

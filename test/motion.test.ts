@@ -3,6 +3,8 @@ import {
   DRUM_MOTIONS,
   durationOf,
   keyframesFor,
+  MIN_MOTION_MS,
+  motionDuration,
   partKeyframesFor,
   stepTransform,
 } from '../src/motion.js';
@@ -31,10 +33,23 @@ describe('DRUM_MOTIONS', () => {
     expect(offsets.every((offset, i) => i === 0 || offset > offsets[i - 1])).toBe(true);
   });
 
-  it.each(KINDS)('%s actually moves', (kind) => {
-    const moved = DRUM_MOTIONS[kind].steps.some((step) => stepTransform(step) !== 'none');
+  it.each(KINDS)('%s actually moves — as a whole or in its parts', (kind) => {
+    const { steps, parts } = DRUM_MOTIONS[kind];
+    const moves = (list: { offset: number }[]) =>
+      list.some((step) => stepTransform(step) !== 'none');
+    const moved = moves(steps) || Object.values(parts ?? {}).some((part) => moves(part.steps));
     expect(moved).toBe(true);
   });
+
+  it.each(['hatClosed', 'hatPedal', 'hatOpen'] as DrumKind[])(
+    '%s leaves its stand alone: only the cymbals move',
+    (kind) => {
+      // A hi-hat stand is bolted to the floor; swinging the whole drawing tipped the rod with
+      // the plates, which a reader called a bad animation.
+      expect(DRUM_MOTIONS[kind].steps.every((step) => stepTransform(step) === 'none')).toBe(true);
+      expect(Object.keys(DRUM_MOTIONS[kind].parts ?? {}).length).toBeGreaterThan(0);
+    }
+  );
 
   it.each(KINDS)('%s is over fast enough to be a hit', (kind) => {
     expect(durationOf(kind)).toBeGreaterThanOrEqual(100);
@@ -72,9 +87,10 @@ describe('keyframesFor', () => {
     expect(amplitude(0)).toBeGreaterThan(1);
   });
 
-  it('carries the pivot only for the motion that swings', () => {
-    expect(keyframesFor('hatOpen')[0].transformOrigin).toBe('center 18%');
+  it('carries a pivot only where a motion names one', () => {
     expect(keyframesFor('kick')[0].transformOrigin).toBeUndefined();
+    const [, top] = partKeyframesFor('hatOpen').find(([name]) => name === 'hatTop')!;
+    expect(top[0].transformOrigin).toBe('center');
   });
 });
 
@@ -87,34 +103,41 @@ describe('keyframesFor', () => {
  * in the same direction are two hands waving.
  */
 describe('DRUM_MOTIONS, parts', () => {
-  it('gives the clap two hands and a transient, and nothing else parts at all', () => {
+  it('gives the clap two hands and a transient, the hats their cymbals, nothing else parts', () => {
     expect(Object.keys(DRUM_MOTIONS.clap.parts ?? {})).toEqual([
       'clapLeft',
       'clapRight',
       'clapSpark',
     ]);
-    for (const kind of KINDS.filter((kind) => kind !== 'clap')) {
+    expect(Object.keys(DRUM_MOTIONS.hatClosed.parts ?? {})).toEqual(['hatPair']);
+    expect(Object.keys(DRUM_MOTIONS.hatPedal.parts ?? {})).toEqual(['hatPair']);
+    expect(Object.keys(DRUM_MOTIONS.hatOpen.parts ?? {})).toEqual(['hatTop', 'hatBottom']);
+    const parted = ['clap', 'hatClosed', 'hatPedal', 'hatOpen'];
+    for (const kind of KINDS.filter((kind) => !parted.includes(kind))) {
       expect(DRUM_MOTIONS[kind].parts, kind).toBeUndefined();
     }
   });
 
-  it.each(Object.entries(DRUM_MOTIONS.clap.parts ?? {}))(
-    'clap/%s starts and ends where its still drawing is',
-    (_name, part) => {
-      expect(part.steps[0].offset).toBe(0);
-      expect(part.steps.at(-1)!.offset).toBe(1);
-      // "At rest" means indistinguishable from the drawing that is on screen
-      // when nothing is happening — which is a neutral transform for a part
-      // that is drawn, and invisibility for one that is not. The clap's lines
-      // are the second kind: they are drawn and never shown until the contact.
-      for (const step of [part.steps[0], part.steps.at(-1)!]) {
-        const invisible = step.opacity === 0;
-        expect(invisible || stepTransform(step) === 'none').toBe(true);
-      }
-      const offsets = part.steps.map((step) => step.offset);
-      expect(offsets.every((offset, i) => i === 0 || offset >= offsets[i - 1])).toBe(true);
+  it.each(
+    (['clap', 'hatClosed', 'hatPedal', 'hatOpen'] as DrumKind[]).flatMap((kind) =>
+      Object.entries(DRUM_MOTIONS[kind].parts ?? {}).map(
+        ([name, part]) => [`${kind}/${name}`, part] as const
+      )
+    )
+  )('%s starts and ends where its still drawing is', (_name, part) => {
+    expect(part.steps[0].offset).toBe(0);
+    expect(part.steps.at(-1)!.offset).toBe(1);
+    // "At rest" means indistinguishable from the drawing that is on screen
+    // when nothing is happening — which is a neutral transform for a part
+    // that is drawn, and invisibility for one that is not. The clap's lines
+    // are the second kind: they are drawn and never shown until the contact.
+    for (const step of [part.steps[0], part.steps.at(-1)!]) {
+      const invisible = step.opacity === 0;
+      expect(invisible || stepTransform(step) === 'none').toBe(true);
     }
-  );
+    const offsets = part.steps.map((step) => step.offset);
+    expect(offsets.every((offset, i) => i === 0 || offset >= offsets[i - 1])).toBe(true);
+  });
 
   it('sends the hands TOWARDS each other, and holds them at the contact', () => {
     const { clapLeft, clapRight } = DRUM_MOTIONS.clap.parts!;
@@ -219,5 +242,23 @@ describe('partKeyframesFor', () => {
     };
     expect(travel(1)).toBeGreaterThan(travel(0.2));
     expect(travel(0)).toBeGreaterThan(0);
+  });
+});
+
+describe('motionDuration', () => {
+  it('runs the whole motion when the piece has time', () => {
+    expect(motionDuration('snare')).toBe(durationOf('snare'));
+    expect(motionDuration('snare', 1)).toBe(durationOf('snare'));
+  });
+
+  it("squeezes a stroke into a fast roll's gap, so each hit goes out and back", () => {
+    // Clinger-Winger's snare in sixteenths: 67ms apart, against a 200ms stroke.
+    const squeezed = motionDuration('snare', 0.067);
+    expect(squeezed).toBeLessThan(67);
+    expect(squeezed).toBeGreaterThanOrEqual(MIN_MOTION_MS);
+  });
+
+  it('never squeezes below a movement the eye can see', () => {
+    expect(motionDuration('hatOpen', 0.01)).toBe(MIN_MOTION_MS);
   });
 });

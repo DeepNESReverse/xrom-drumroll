@@ -18,7 +18,7 @@
  * The falling area, the frame loop and the sparks are `@xromdev/roll`'s.
  */
 
-import { RollView, type LitLane, type RollNote, type RollOptions, type RollSurface, type SurfaceLayout } from '@xromdev/roll';
+import { RollView, type DrumHead, type LitLane, type RollNote, type RollOptions, type RollSurface, type SurfaceLayout } from '@xromdev/roll';
 import { drumIcon, drumKindOf } from './icons.js';
 import {
   EMPTY_KIT_MIX,
@@ -28,9 +28,10 @@ import {
   isPieceSilencedByOthers,
   lanesFromHits,
   placementOf,
+  type DrumKind,
   type KitMix,
 } from './lanes.js';
-import { durationOf, keyframesFor, partKeyframesFor } from './motion.js';
+import { keyframesFor, motionDuration, partKeyframesFor } from './motion.js';
 
 export interface DrumHit {
   /** `$400E` low nibble: the LFSR period index, 0 (fastest) .. 15 (slowest). */
@@ -119,6 +120,22 @@ function resolveLanes(o: DrumRollOptions, periods: readonly number[]): Resolved[
 }
 
 /** The kit, as a roll's surface. */
+/**
+ * What each piece falls as — the piece itself, as its icon under the lane draws it: a cymbal
+ * edge-on, an open hat as two with air between them, a drumhead from above. As plain blocks a
+ * kit of four hi-hat lanes read as one green pill falling four times.
+ */
+const HEAD_OF: Record<DrumKind, DrumHead> = {
+  hatClosed: 'cymbal',
+  hatPedal: 'cymbal',
+  hatOpen: 'openCymbal',
+  clap: 'clap',
+  snare: 'snare',
+  sideStick: 'stick',
+  tom: 'tom',
+  kick: 'kick',
+};
+
 class Kit implements RollSurface<DrumRollOptions> {
   readonly element: HTMLDivElement;
   readonly rootClass = 'xdr-roll';
@@ -252,6 +269,23 @@ class Kit implements RollSurface<DrumRollOptions> {
    * cancelled first: a part left running against a restarted body is a hand
    * clapping out of time with its own arm.
    */
+  /** Each lane's hit starts, in order — set by the view with its hits. */
+  startsByLane = new Map<number, number[]>();
+
+  /** Seconds from this hit to the same piece's next, if there is one. */
+  private nextGap(lane: number, start: number): number | undefined {
+    const starts = this.startsByLane.get(lane);
+    if (!starts) return undefined;
+    let lo = 0;
+    let hi = starts.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (starts[mid] <= start + 1e-6) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < starts.length ? starts[lo] - start : undefined;
+  }
+
   strike(lane: number, node: HTMLElement, note: LitLane) {
     if (!this.animate) return;
     const reduced = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -259,7 +293,9 @@ class Kit implements RollSurface<DrumRollOptions> {
     const kind = drumKindOf(lane);
     const piece = node.querySelector<HTMLElement>('[data-piece]');
     if (!kind || !piece || typeof piece.animate !== 'function') return;
-    const options = { duration: durationOf(kind), easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)', fill: 'none' } as const;
+    // Squeezed into the gap before this piece's next hit, so a fast roll is whole strokes, not a
+    // piece hung at its peak — see `motionDuration`.
+    const options = { duration: motionDuration(kind, this.nextGap(lane, note.start)), easing: 'cubic-bezier(0.22, 0.61, 0.36, 1)', fill: 'none' } as const;
     this.running.get(lane)?.forEach((animation) => animation.cancel());
     const started = [piece.animate(keyframesFor(kind, note.velocity), options)];
     for (const [part, frames] of partKeyframesFor(kind, note.velocity)) {
@@ -277,8 +313,12 @@ class Kit implements RollSurface<DrumRollOptions> {
 export class DrumRollView extends RollView<DrumRollOptions> {
   private hits: readonly DrumHit[] = [];
 
+  private readonly kit: Kit;
+
   constructor(host: HTMLElement, options: DrumRollOptions = {}) {
-    super(host, new Kit(host.ownerDocument), options);
+    const kit = new Kit(host.ownerDocument);
+    super(host, kit, options);
+    this.kit = kit;
   }
 
   /** The hits of the piece, in any order. */
@@ -286,15 +326,29 @@ export class DrumRollView extends RollView<DrumRollOptions> {
     this.hits = hits;
     const mix = this.options.kitMix ?? EMPTY_KIT_MIX;
     const color = new Map((this.options.lanes ?? []).filter((l) => l.color).map((l) => [l.period, l.color!]));
+    const startsByLane = new Map<number, number[]>();
+    for (const hit of hits) {
+      const starts = startsByLane.get(hit.period) ?? [];
+      starts.push(hit.start);
+      startsByLane.set(hit.period, starts);
+    }
+    for (const starts of startsByLane.values()) starts.sort((a, b) => a - b);
+    this.kit.startsByLane = startsByLane;
+    // Each hit falls as the piece struck, unless the pieces are not drawn — see `HEAD_OF`.
+    const heads = this.options.showIcons !== false;
     super.setNotes(
-      hits.map((hit) => ({
-        lane: hit.period,
-        start: hit.start,
-        duration: hit.duration,
-        velocity: hit.velocity,
-        color: color.get(hit.period) ?? colorOfPeriod(hit.period),
-        dimmed: hit.dimmed || !isPieceAudible(hit.period, mix),
-      }))
+      hits.map((hit) => {
+        const kind = drumKindOf(hit.period);
+        return {
+          lane: hit.period,
+          start: hit.start,
+          duration: hit.duration,
+          velocity: hit.velocity,
+          color: color.get(hit.period) ?? colorOfPeriod(hit.period),
+          dimmed: hit.dimmed || !isPieceAudible(hit.period, mix),
+          head: heads && kind ? HEAD_OF[kind] : undefined,
+        };
+      })
     );
   }
 

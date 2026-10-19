@@ -64,6 +64,9 @@ export interface DrumMotion {
   parts?: Record<string, { steps: MotionStep[]; origin?: string }>;
 }
 
+/** A piece that does not move as a whole: everything happens in its `parts`. */
+const STILL: MotionStep[] = [{ offset: 0 }, { offset: 1 }];
+
 /**
  * The motions, at full strength.
  *
@@ -193,40 +196,77 @@ export const DRUM_MOTIONS: Record<DrumKind, DrumMotion> = {
     ],
   },
 
-  // Clamped shut, so it cannot ring: one tick and it is over.
+  // The hats move only their CYMBALS (`parts`, `data-part` in `drumIcons.tsx`): the rod and its
+  // foot are bolted to the floor and stay put. Swinging the whole drawing tipped the stand with
+  // the plates, which a reader called a bad animation (2026-10-18) — a hi-hat stand does not move
+  // when the hat is struck, the brass on it does. So the piece itself stays STILL and the travel
+  // is all in the parts.
+
+  // Clamped shut, so it cannot ring: the pair ticks down on the rod and back, one stroke.
   hatClosed: {
     duration: 130,
-    steps: [
-      { offset: 0, scaleY: 1, scale: 1 },
-      { offset: 0.2, scaleY: 0.82, scale: 1.06 },
-      { offset: 1, scaleY: 1, scale: 1 },
-    ],
+    steps: STILL,
+    parts: {
+      hatPair: {
+        origin: 'center',
+        steps: [
+          { offset: 0, y: 0, rotate: 0, scaleY: 1 },
+          { offset: 0.2, y: 1.2, rotate: -2.5, scaleY: 0.86 },
+          { offset: 0.55, y: -0.3, rotate: 0.8 },
+          { offset: 1, y: 0, rotate: 0, scaleY: 1 },
+        ],
+      },
+    },
   },
 
-  // Held shut by the foot — the same tick, shorter still, and pressed down.
+  // Held shut by the foot — the same tick, shorter still, and the pair pushed down the rod.
   hatPedal: {
     duration: 110,
-    steps: [
-      { offset: 0, scaleY: 1, y: 0 },
-      { offset: 0.22, scaleY: 0.78, y: 1 },
-      { offset: 1, scaleY: 1, y: 0 },
-    ],
+    steps: STILL,
+    parts: {
+      hatPair: {
+        origin: 'center',
+        steps: [
+          { offset: 0, y: 0, scaleY: 1 },
+          { offset: 0.22, y: 2, scaleY: 0.8 },
+          { offset: 1, y: 0, scaleY: 1 },
+        ],
+      },
+    },
   },
 
-  // Free to ring: it swings on the rod and the swing decays. Much the longest
-  // motion, because that IS the difference between an open hat and a closed one.
+  // Free to ring: the top cymbal is knocked over on the rod and wobbles, the swing decaying, while
+  // the bottom one — struck through the air between them — answers with a smaller wobble a beat
+  // behind. Much the longest motion, because that IS the difference between an open hat and a
+  // closed one.
   hatOpen: {
     duration: 520,
-    origin: 'center 18%',
-    steps: [
-      { offset: 0, rotate: 0, scale: 1 },
-      { offset: 0.1, rotate: -7, scale: 1.06 },
-      { offset: 0.3, rotate: 5 },
-      { offset: 0.5, rotate: -3.2 },
-      { offset: 0.7, rotate: 1.8 },
-      { offset: 0.86, rotate: -0.8 },
-      { offset: 1, rotate: 0, scale: 1 },
-    ],
+    steps: STILL,
+    parts: {
+      hatTop: {
+        origin: 'center',
+        steps: [
+          { offset: 0, rotate: 0, y: 0 },
+          { offset: 0.08, rotate: -11, y: 1.6 },
+          { offset: 0.26, rotate: 8, y: -0.4 },
+          { offset: 0.44, rotate: -5 },
+          { offset: 0.62, rotate: 3 },
+          { offset: 0.8, rotate: -1.4 },
+          { offset: 1, rotate: 0, y: 0 },
+        ],
+      },
+      hatBottom: {
+        origin: 'center',
+        steps: [
+          { offset: 0, rotate: 0 },
+          { offset: 0.14, rotate: 3.5 },
+          { offset: 0.34, rotate: -2.6 },
+          { offset: 0.56, rotate: 1.5 },
+          { offset: 0.78, rotate: -0.6 },
+          { offset: 1, rotate: 0 },
+        ],
+      },
+    },
   },
 };
 
@@ -280,6 +320,24 @@ export function keyframesFor(kind: DrumKind, velocity = 1): Keyframe[] {
 }
 
 export const durationOf = (kind: DrumKind): number => DRUM_MOTIONS[kind].duration;
+
+/** The shortest a motion is squeezed to, ms: under it a hit is a flicker, not a movement. */
+export const MIN_MOTION_MS = 45;
+
+/**
+ * How long this hit's motion runs, when the same piece is struck again `gap` seconds later.
+ *
+ * A motion is longer than the space between the hits of a fast roll — the snare's 200ms against
+ * Clinger-Winger's sixteenths at 67ms — and the next hit restarts it, so a roll showed only the
+ * first third of every stroke: the piece hung at its peak, looking stuck. So the motion is
+ * squeezed into the gap, with a little rest before the next strike: every hit is a whole stroke,
+ * out and back, and a roll reads as the piece shaking rather than frozen.
+ */
+export function motionDuration(kind: DrumKind, gap?: number): number {
+  const full = durationOf(kind);
+  if (gap === undefined || !(gap > 0)) return full;
+  return Math.min(full, Math.max(MIN_MOTION_MS, gap * 1000 * 0.85));
+}
 
 /** The named parts of this piece's drawing that move on their own, if any. */
 export function partKeyframesFor(kind: DrumKind, velocity = 1): [string, Keyframe[]][] {

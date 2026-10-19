@@ -66,6 +66,13 @@ function cymbal(id: string, cx: number, cy: number, rx: number, tilt = 0, bell =
   );
 }
 
+/**
+ * A part of a hat that moves on its own when struck (`DRUM_MOTIONS[kind].parts`): the cymbals ride
+ * the rod, the rod and its foot do not. `fill-box` puts the pivot at the middle of the part.
+ */
+const moving = (part: string, inner: string) =>
+  `<g data-part="${part}" style="transform-box:fill-box;transform-origin:center">${inner}</g>`;
+
 /** The rod a hat stands on, with its foot. */
 const stand = (id: string, cx: number, from: number, to: number) =>
   `<rect x="${cx - 1}" y="${from}" width="2" height="${to - from}" fill="url(#${id}-chrome)"/>` +
@@ -185,18 +192,31 @@ const SHAPES: Record<DrumKind, (id: string) => string> = {
   clap: () => clapShape(),
   // Closed: the two cymbals meet into one thick edge.
   hatClosed: (id) =>
-    stand(id, 24, 6, 42) + cymbal(id, 24, 22, 15, 0, false) + cymbal(id, 24, 19.4, 15) +
-    `<rect x="22.4" y="12" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>`,
+    stand(id, 24, 6, 42) +
+    moving(
+      'hatPair',
+      cymbal(id, 24, 22, 15, 0, false) + cymbal(id, 24, 19.4, 15) +
+        `<rect x="22.4" y="12" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>`
+    ),
   // Held shut by the foot, so the pedal is drawn.
   hatPedal: (id) =>
-    stand(id, 24, 6, 36) + cymbal(id, 24, 19, 14, 0, false) + cymbal(id, 24, 16.6, 14) +
-    `<rect x="22.4" y="9.6" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>` +
+    stand(id, 24, 6, 36) +
+    moving(
+      'hatPair',
+      cymbal(id, 24, 19, 14, 0, false) + cymbal(id, 24, 16.6, 14) +
+        `<rect x="22.4" y="9.6" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>`
+    ) +
     `<path d="M14 42h13l3-4" stroke="${HARDWARE}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>` +
     `<rect x="13" y="40.6" width="15" height="3" rx="1.3" fill="url(#${id}-chrome)"/>`,
   // Open: a gap, and the top cymbal leaning off true.
   hatOpen: (id) =>
-    stand(id, 24, 6, 42) + cymbal(id, 24, 26, 15, 0, false) + cymbal(id, 24, 15, 15, -7) +
-    `<rect x="22.4" y="7.5" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>`,
+    stand(id, 24, 6, 42) +
+    moving('hatBottom', cymbal(id, 24, 26, 15, 0, false)) +
+    moving(
+      'hatTop',
+      cymbal(id, 24, 15, 15, -7) +
+        `<rect x="22.4" y="7.5" width="3.2" height="5" rx="1" fill="url(#${id}-chrome)"/>`
+    ),
 };
 
 let serial = 0;
